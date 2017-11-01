@@ -1,0 +1,12 @@
+Package: cmp
+Type: Package
+Title: Conway-Maxwell Poisson Regression and Additive models using IRLS algorithm
+Version: 0.1.0
+Author: Suneel Babu Chatla
+Maintainer: Suneel Babu Chatla <chatla.suneel@gmail.com>
+Description: Estimation of Conway-Maxwell Poisson regression using IRLS algorithm and the Estimation of Generalized Additive Model with penalized splines using the P-IRLS algorithm.
+License: GPL(>=2)
+Depends:mgcv,stats
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.0.1

@@ -1,0 +1,14 @@
+useDynLib(cmp)
+
+importFrom("stats", "gaussian", "lm.fit", "make.link")
+import(mgcv)
+
+export(gam.cmp,
+       gam.perf1,
+       summary.gam.cmp,
+       summary.gam1,
+       gam.fit.cmp,
+       cmp,
+       gam.fit.cmp1,
+       print.summary.gam1,
+       print.summary.gam.cmp)
