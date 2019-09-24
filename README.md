@@ -1,7 +1,7 @@
 # CMP Distribution
 Conway-Maxwell-Poisson GLM and GAM
 
-The package contains two routines to fit CMP generalized additive models. They only differ interms of the dispersion parameter. 
+The package contains two routines to fit CMP generalized additive models. They only differ interms of the models for the dispersion parameter. 
 
 1.  gam.cmp(): allows models for both lambda and nu parameters
     main inputs: 
