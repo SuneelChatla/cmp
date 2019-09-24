@@ -4,13 +4,13 @@
 ######## Support functions  (Calling C code : Extended the code from Prof. Thomas Minka)
 ##########################################
 ## cmp family
-cmp <- function (link = "log") 
+cmp <- function (link = "log")
 {
   linktemp <- substitute(link)
-  if (!is.character(linktemp)) 
+  if (!is.character(linktemp))
     linktemp <- deparse(linktemp)
   okLinks <- c("log")   #, "identity", "sqrt"): only suppor log link
-  if (linktemp %in% okLinks) 
+  if (linktemp %in% okLinks)
     stats <- make.link(linktemp)
   else if (is.character(link)) {
     stats <- make.link(link)
@@ -19,12 +19,12 @@ cmp <- function (link = "log")
   else {
     if (inherits(link, "link-glm")) {
       stats <- link
-      if (!is.null(stats$name)) 
+      if (!is.null(stats$name))
         linktemp <- stats$name
     }
     else {
-      stop(gettextf("link \"%s\" not available for poisson family; available links are %s", 
-                    linktemp, paste(sQuote(okLinks), collapse = ", ")), 
+      stop(gettextf("link \"%s\" not available for poisson family; available links are %s",
+                    linktemp, paste(sQuote(okLinks), collapse = ", ")),
            domain = NA)
     }
   }
@@ -44,16 +44,16 @@ cmp <- function (link = "log")
   # })
   simfun <- function(object, nsim) {
     wts <- object$prior.weights
-    if (any(wts != 1)) 
+    if (any(wts != 1))
       warning("ignoring prior weights")
     # ftd <- fitted(object)
     mu <- object$mu
     nu <- object$nu
     rcmp(nsim * length(mu), mu,nu)
   }
-  structure(list(family = "cmp", link = linktemp, linkfun = stats$linkfun, 
-                 linkinv = stats$linkinv, dev = dev, cumulants=cumulants, 
-                 validmu = validmu, valideta = stats$valideta, simulate = simfun), 
+  structure(list(family = "cmp", link = linktemp, linkfun = stats$linkfun,
+                 linkinv = stats$linkinv, dev = dev, cumulants=cumulants,
+                 validmu = validmu, valideta = stats$valideta, simulate = simfun),
             class = "family")
 }
 
@@ -62,8 +62,8 @@ cmp <- function (link = "log")
 
 
 ### evaluation of -2 loglik
-CMP.dev <- function(y,y.logfact,lmu,lnu,...){
-    return( sum(-2*(y*lmu-exp(lnu)*y.logfact- com.log.z(lmu,lnu))))
+CMP.dev <- function(y,ylogfact,lmu,lnu,...){
+    return( sum(-2*(y*lmu-exp(lnu)*ylogfact- com.log.z(lmu,lnu))))
   }
 
 
@@ -72,7 +72,7 @@ rcmp <- function(n,lambda,nu)
 {
 n=as.integer(n)
 #
-if(length(lambda)==n) 
+if(length(lambda)==n)
 {
 lambda=as.double(lambda)
 }else if(length(lambda)==1)
@@ -81,7 +81,7 @@ lambda=rep(lambda,n)
 lambda=as.double(lambda)
 }else stop("wrong size for lambda")
 #
-if(length(nu)==n) 
+if(length(nu)==n)
 {
 nu=as.double(nu)
 }else if(length(nu)==1)
@@ -151,7 +151,7 @@ CMPCumulants <- function(x,llambda=llambda,lnu=lnu,flag=flag)
 }
 
 ###
-com.log.z=function(llambda, lnu) 
+com.log.z=function(llambda, lnu)
 {
   lambda=as.double(exp(llambda));nu=as.double(exp(lnu))
   if (any(exp(llambda) <= 0) ||any( exp(lnu) <= 0))
@@ -183,7 +183,7 @@ com.log.z=function(llambda, lnu)
     z=rep(0,n);
     result=.C("cmp_lnz_all",llambda=as.double(llambda),lnu=as.double(lnu),
               n=as.integer(n),z=as.double(z)) #,PACKAGE = "cmp"
-    rz=result$z  
+    rz=result$z
   }
   #
   return(rz)
@@ -192,7 +192,7 @@ com.log.z=function(llambda, lnu)
 ## Asymptotic values
 ###################################################
 
-asym.com.log.z=function(llambda, lnu) 
+asym.com.log.z=function(llambda, lnu)
 {
   #
   lambda=as.double(exp(llambda));nu=as.double(exp(lnu))
@@ -229,7 +229,7 @@ asym.cumulants=function(llambda,lnu,flag)
     d=llambda/nu
     # calculation of cumulants for log y!  :multiply by -1 to get mean
     mean=alpha*(-1+d)+d/(2*nu)+log(2*pi)/2+1/(2*nu)-1/(24*alpha)*(1+1/nu+d-d/nu^2)-1/(24*alpha^2)*(1/nu^3+d/nu-d/nu^3)
-    
+
     var= alpha*d*llambda/nu^2+d/nu^2+1/(2*nu^2)-1/(24*nu^2*alpha)*(1-(3*d)/nu-d-llambda*d+llambda*d/nu^2)+1/(24*alpha^2*nu^3)*(-3/nu-2*llambda+4*d/nu)+d/(12*nu^3*alpha^2)*(1/nu+llambda-d/nu)
   }
   return(list(mean=mean,var=var))

@@ -1,6 +1,6 @@
 
 
-gam.cmp <- function(formula.list,data=data,family=cmp(),weights=NULL,subset=NULL,na.action,offset=NULL, method="GCV.Cp",optimizer=c("perf","magic"),control=gam.control(), scale=0,select=FALSE,knots=NULL,sp=NULL,min.sp=NULL,H=NULL,gamma=1,fit=TRUE, paraPen=NULL,G=NULL,in.out=NULL,drop.unused.levels=TRUE,drop.intercept=NULL,...)
+gam.cmp <- function(formula.list,data=data,family=cmp(),weights=NULL,subset=NULL,na.action,offset.lam=NULL,offset.nu=NULL, mucoef=NULL,nucoef=NULL,method="GCV.Cp",optimizer=c("perf","magic"),control=gam.control(), scale=0,select=FALSE,knots=NULL,sp=NULL,min.sp=NULL,H=NULL,gamma=1,fit=TRUE, paraPen=NULL,G=NULL,in.out=NULL,drop.unused.levels=TRUE,drop.intercept=NULL,...)
 {
 ##
 
@@ -18,10 +18,12 @@ if(is.list(formula.list))
   if (is.character(family)) family <- eval(parse(text=family))
   if (is.function(family)) family <- family()
   if (is.null(family$family)) stop("family not recognized")
+  if(!is.null(offset.lam))  data$offset.lam <-offset.lam
+  if(!is.null(offset.nu))  data$offset.nu <- offset.nu
   #
 # preparing bases gam set-up
-G <- gam.perf1(t1,data = data,family = cmp(),weights=NULL,subset=NULL,na.action,offset=NULL, method="GCV.Cp",optimizer=c("perf","magic"),control=gam.control(), scale=0,select=FALSE,knots=NULL,sp=NULL,min.sp=NULL,H=NULL,gamma=1,fit=FALSE, paraPen=NULL,G=NULL,in.out=NULL,drop.unused.levels=TRUE,drop.intercept=NULL,...)
-G1 <- gam.perf1(t2,data = data,family = cmp(),weights=NULL,subset=NULL,na.action,offset=NULL, method="GCV.Cp",optimizer=c("perf","magic"),control=gam.control(), scale=0,select=FALSE,knots=NULL,sp=NULL,min.sp=NULL,H=NULL,gamma=1,fit=FALSE, paraPen=NULL,G=NULL,in.out=NULL,drop.unused.levels=TRUE,drop.intercept=NULL,...)
+G <- gam.perf1(t1,data = data,family = cmp(),weights=NULL,subset=NULL,na.action,offset=offset.lam, method="GCV.Cp",optimizer=c("perf","magic"),control=gam.control(), scale=0,select=FALSE,knots=NULL,sp=NULL,min.sp=NULL,H=NULL,gamma=1,fit=FALSE, paraPen=NULL,G=NULL,in.out=NULL,drop.unused.levels=TRUE,drop.intercept=NULL,...)
+G1 <- gam.perf1(t2,data = data,family = cmp(),weights=NULL,subset=NULL,na.action,offset=offset.nu, method="GCV.Cp",optimizer=c("perf","magic"),control=gam.control(), scale=0,select=FALSE,knots=NULL,sp=NULL,min.sp=NULL,H=NULL,gamma=1,fit=FALSE, paraPen=NULL,G=NULL,in.out=NULL,drop.unused.levels=TRUE,drop.intercept=NULL,...)
 #
 G$conv.tol <- control$mgcv.tol      # tolerence for mgcv
 G$max.half <- control$mgcv.half
@@ -55,103 +57,9 @@ if (!is.null(G1$H)) { ## then the sqrt fixed penalty matrix H is needed for (RE)
 }
 
 ### calling cmp fit
-object <- gam.fit.cmp(G,G1,family=family,control=control,gamma=gamma)
+object <- gam.fit.cmp(G,G1,family=family,mucoef = mucoef,nucoef = nucoef,control=control,gamma=gamma)
 ###
-##
-object$smooth<-G$smooth
-object$smooth.nu<-G1$smooth
 
-names(object$edf) <- G$term.names
-names(object$edf1) <- G$term.names
-names(object$edf.nu) <- G1$term.names
-names(object$edf1.nu) <- G1$term.names
-
-if (!is.null(G$P)) { ## matrix transforming from fit to prediction parameterization
-  object$coefficients <- as.numeric(G$P %*% object$coefficients)
-  object$Vp <- G$P %*% object$Vp %*% t(G$P)
-  object$Ve <- G$P %*% object$Ve %*% t(G$P)
-  rownames(object$Vp) <- colnames(object$Vp) <- G$term.names
-  rownames(object$Ve) <- colnames(object$Ve) <- G$term.names
-}
-#
-if (!is.null(G1$P)) { ## matrix transforming from fit to prediction parameterization
-  object$coefficients.nu <- as.numeric(G1$P %*% object$coefficients.nu)
-  object$Vp.nu <- G1$P %*% object$Vp.nu %*% t(G1$P)
-  object$Ve.nu <- G1$P %*% object$Ve.nu %*% t(G1$P)
-  rownames(object$Vp.nu) <- colnames(object$Vp.nu) <- G1$term.names
-  rownames(object$Ve.nu) <- colnames(object$Ve.nu) <- G1$term.names
-}
-#
-names(object$coefficients) <- G$term.names
-names(object$coefficients.nu) <- G1$term.names
-
-##
-if (!is.null(G$L)) {
-  object$full.sp <- as.numeric(exp(G$L%*%log(object$sp)+G$lsp0))
-  names(object$full.sp) <- names(G$lsp0)
-}
-if (!is.null(G1$L)) {
-  object$full.sp.nu <- as.numeric(exp(G1$L%*%log(object$sp.nu)+G1$lsp0))
-  names(object$full.sp.nu) <- names(G1$lsp0)
-}
-#
-names(object$sp) <- names(G$sp)
-names(object$sp.nu) <- names(G1$sp)
-
-object$paraPen <- G$pP
-object$formula <- G$formula
-
-object$paraPen.nu <- G1$pP
-object$formula.nu <- G1$formula
-## store any lpi attribute of G$X for use in predict.gam...
-
-object$var.summary <- G$var.summary
-object$var.summary.nu <- G1$var.summary
-
-object$cmX <- G$cmX ## column means of model matrix --- useful for CIs
-object$cmX.nu <- G1$cmX
-
-object$model<-G$mf # store the model frame
-object$model.nu<-G1$mf
-
-object$na.action <- attr(G$mf,"na.action") # how to deal with NA's
-object$control <- control
-object$terms <- G$terms
-object$terms.nu <- G1$terms
-#
-object$pred.formula <- G$pred.formula
-object$pred.formula.nu <- G1$pred.formula
-
-#
-attr(object$pred.formula,"full") <- reformulate(all.vars(object$terms))
-attr(object$pred.formula.nu,"full") <- reformulate(all.vars(object$terms))
-
-object$pterms <- G$pterms
-object$pterms.nu <- G1$pterms
-
-object$assign <- G$assign # applies only to pterms
-object$assign.nu <- G1$assign
-
-object$contrasts <- G$contrasts
-object$contrasts.nu <- G1$contrasts
-
-object$xlevels <- G$xlevels
-object$xlevels.nu <- G1$xlevels
-
-object$offset <- G$offset
-object$offset.nu <- G1$offset
-
-if (!is.null(G$Xcentre)) object$Xcentre <- G$Xcentre
-if (!is.null(G1$Xcentre)) object$Xcentre.nu <- G1$Xcentre
-
-if (control$keepData) object$data <- data
-#
-object$df.residual <- nrow(G$X) - sum(object$edf)-sum(object$edf.nu)
-#
-object$min.edf <- G$min.edf
-object$min.edf.nu <- G1$min.edf
-#
-object$optimizer <- "magic"
 
 class(object) <- c("gam","glm","lm")
 
@@ -178,9 +86,8 @@ object
 ####################################################
 ##### Function to fit extended gam for cmp
 ####################################################
-gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
-                          mustart = NULL,nustart=NULL, family = gaussian(),
-                          control = gam.control(),gamma=1,...)
+gam.fit.cmp <- function (G, G1, mucoef = NULL,nucoef=NULL, family = cmp(),
+                          control = gam.control(),gamma=1,oneIter=FALSE,...)
   # fitting function for a gam, modified from glm.fit.
   # note that smoothing parameter estimates from one irls iterate are carried over to the next irls iterate
   # unless the range of s.p.s is large enough that numerical problems might be encountered (want to avoid
@@ -232,27 +139,28 @@ gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
     validmu <- function(mu) TRUE
 
   ## initialize nu
-  if(is.null(nustart))
-  {nustart <- rep(0.2,nobs)
-  nueta <- linkfun(nustart)}
+  ## initialize nu
+  if(is.null(nucoef))
+  {
+    nustart <- rep(0.2,nobs)
+    nueta <- linkfun(nustart)}
   else
   {
-    if(length(nu)==1)
-    {
-      nustart <- rep(nu,nobs)
-      nueta <- linkfun(nustart)
-    }
-    else nueta <- linkfun(nustart)
+    nustart <- as.matrix(Xnu)%*%as.matrix(nucoef)
+    nueta <- (nustart+offset1)
   }
+
   ##
-  if (is.null(mustart))   # new from version 1.5.0
-  {mustart <- (y+0.1)^nustart
-  eta <- linkfun(mustart)}
+  if (is.null(mucoef))   # new from version 1.5.0
+  {
+    mustart <- (y+0.1)^nustart
+    eta <- linkfun(mustart)}
   else
   {
-    if(length(mustart)==1) mustart <- rep(mustart,nobs)
-    eta <- linkfun(mustart)
+    mustart <- as.matrix(X)%*%mucoef
+    eta <- (mustart+offset)
   }
+  #
   #
   if (NCOL(y) > 1)
     stop("y must be univariate unless binomial")
@@ -277,7 +185,7 @@ gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
   ##############
   ## Main iteration of P-IRLS starts here
   ##############
-  scflag=0
+  scflag=0;
   for (iter in 1:(20*(control$maxit)))
   {
     good <- weights > 0
@@ -300,17 +208,17 @@ gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
     #####
     ## for lambda
     #####
-    z<-G$y <- (eta - offset)[good] + (y - mean.y)[good]/var.y[good]
+    z<-G$y.up <- (eta - offset)[good] + (y - mean.y)[good]/var.y[good]
     w<- sqrt(weights[good] * var.y[good])
 
     G$w<-w
-    G$X<-X[good,]  # truncated design matrix
-    if (dim(X)[2]==1) dim(G$X)<-c(length(X[good,]),1) # otherwise dim(G$X)==NULL !!
+    G$X.up<-X[good,]  # truncated design matrix
+    if (dim(X)[2]==1) dim(G$X.up)<-c(length(X[good,]),1) # otherwise dim(G$X)==NULL !!
     ngoodobs <- as.integer(nobs - sum(!good))
     ncols <- as.integer(1)
     # must set G$sig2 to scale parameter or -1 here....
     G$sig2<-scale
-    mr <- magic(G$y,G$X,msp,G$S,G$off,L=G$L,lsp0=G$lsp0,G$rank,G$H,matrix(0,0,ncol(G$X)),  #G$C,
+    mr <- magic(G$y.up,G$X.up,msp,G$S,G$off,L=G$L,lsp0=G$lsp0,G$rank,G$H,matrix(0,0,ncol(G$X)),  #G$C,
                 G$w,gamma=gamma,G$sig2,G$sig2<0,
                 ridge.parameter=control$irls.reg,control=magic.control,n.score=n.score,nthreads=control$nthreads)
     G$p<-mr$b;msp<-mr$sp;G$sig2<-mr$scale;G$gcv.ubre<-mr$score;
@@ -347,15 +255,15 @@ gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
     }
     #
     Xnu1 <- as.matrix(Xnu[good1,]*nu[good1])
-    z1 <- G1$y <- nueta[good1]*nu[good1]+(mean.logy-y.logfact)[good1]/var.logy[good1]
+    z1 <- G1$y.up <- (nueta[good1]-offset1[good1])*nu[good1]+(mean.logy-y.logfact)[good1]/var.logy[good1]
     w1 <- sqrt(weights[good1]*var.logy[good1])
     G1$w <- w1
-    G1$X <- Xnu1
+    G1$X.up <- Xnu1
     # fit2 <- lm.fit(Xnu1*w1,z1*w1)
     #
     # must set G$sig2 to scale parameter or -1 here....
     G1$sig2<-scale1
-    mr1 <- magic(G1$y,G1$X,msp1,G1$S,G1$off,L=G1$L,lsp0=G1$lsp0,G1$rank,G1$H,matrix(0,0,ncol(G1$X)),  #G$C,
+    mr1 <- magic(G1$y.up,G1$X.up,msp1,G1$S,G1$off,L=G1$L,lsp0=G1$lsp0,G1$rank,G1$H,matrix(0,0,ncol(G1$X)),  #G$C,
                 G1$w,gamma=gamma,G1$sig2,G1$sig2<0,
                 ridge.parameter=control$irls.reg,control=magic.control,n.score=n.score1,nthreads=control$nthreads)
     G1$p<-mr1$b;msp1<-mr1$sp;G1$sig2<-mr1$scale;G1$gcv.ubre<-mr1$score;
@@ -369,16 +277,19 @@ gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
     nustart <- G1$p
     nueta <- drop(Xnu %*% nustart) # 1.5.0
     nu <- linkinv(nueta <- nueta + offset1)
+    if(all(nu<=0.05)) scflag=1
     nueta <- linkfun(nu) # force eta/mu consistency even if linkinv truncates
     ##
+    good1 <- good1 & (nu>=0.05)
     good2 <- good & good1
     dev <- devf(y[good2], y.logfact[good2],eta[good2], nueta[good2])
-    cat("deviance",dev,"iter",iter,"\n")
+    # cat("deviance",dev,"iter",iter,"\n")
 
     # termination of onemore loop
     if(scflag==1)
     {
       conv = TRUE
+      dev=devold
       break
     }
     #
@@ -395,7 +306,11 @@ gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
       nco <- coefold.nu; ncoo <- coefoold.nu
       while (!is.finite(dev)||((dev-devold)/(0.1+devold)> control$epsilon)) {
         if (ii > control$maxit)
-          stop("inner loop 1; can't correct step size")
+          {
+          warning("inner loop 1; can't correct step size")
+          scflag=1
+          break
+        }
         ii <- ii + 1
         #
         mustart <- (mustart + coefold)/2
@@ -426,7 +341,11 @@ gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
       nco <- coefold.nu; ncoo <- coefoold.nu
       while (!(valideta(eta) && validmu(mu)&& valideta(nueta) && validmu(nu))) {
         if (ii > control$maxit)
-          stop("inner loop 2; can't correct step size")
+        {
+          warning("inner loop 1; can't correct step size")
+          scflag=1
+          break
+        }
         ii <- ii + 1
         ##
         mustart <- (mustart + coefold)/2
@@ -453,7 +372,7 @@ gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
     ## Test for convergence here ...
     ccrit <- abs(dev-devold)/(0.1+abs(devold))
     #
-    if ( (ccrit < control$epsilon && scflag==0) || olm ) {
+    if ( (ccrit < control$epsilon && scflag==0) || oneIter ) {
       conv <- TRUE
       coef <- mustart #1.5.0
       coef.nu <- nustart
@@ -484,10 +403,10 @@ gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
   nr1 <- min(sum(good1), nvars1)
 
   wt <- rep(0, nobs)
-  wt[good] <- G$w^2
+  wt[good] <- G$w^2[good]
 
   wt1 <- rep(0, nobs)
-  wt1[good1] <- G1$w^2
+  wt1[good1] <- G1$w^2[good1]
 
 
   # wtdmu <- if (intercept) sum(weights * y)/sum(weights) else linkinv(offset)
@@ -541,14 +460,117 @@ gam.fit.cmp <- function (G, G1, start = NULL, etastart = NULL,
     gcv.ubre.dev <- dev/length(y) + 2 * gamma * sum(G$edf)/length(y) - G$sig2
   }
   #
-  list(coefficients = as.vector(coef), residuals = residuals, fitted.values = mu, fitted.values.y=mean.y,
+  #
+  object <- list(coefficients = as.vector(coef), residuals = residuals, fitted.values = mu, fitted.values.y=mean.y,
        family = family,linear.predictors = eta,linear.predictors.nu = nueta, deviance = dev,coefficients.nu=as.vector(coef.nu),
        nu=nu, iter = iter, weights = wt, weights.nu=wt1, prior.weights = weights,
        y = y, converged = conv,sig2=G$sig2,edf=G$edf,hat=G$hat,edf1=mv$edf1,
        R=mr$R,boundary = boundary,sp = G$sp,nsdf=G$nsdf,Ve=G$Ve,Vp=G$Vp,mgcv.conv=G$conv,
        gcv.ubre=G$gcv.ubre,aic=aic.model,rank=rank,gcv.ubre.dev=gcv.ubre.dev,scale.estimated = (scale < 0),sig2.nu=G1$sig2,edf.nu=G1$edf,hat.nu=G1$hat,edf1.nu=mv$edf1,
        R.nu=mr1$R,boundary = boundary,sp.nu = G1$sp,nsdf.nu=G1$nsdf,Ve.nu=G1$Ve,Vp.nu=G1$Vp,mgcv.conv.nu=G1$conv,
-       gcv.ubre.nu=G1$gcv.ubre,rank.nu=rank1)
+       gcv.ubre.nu=G1$gcv.ubre,rank.nu=rank1,G=G,G1=G1)
+
+  ##
+  ##
+  object$smooth<-G$smooth
+  object$smooth.nu<-G1$smooth
+
+  names(object$edf) <- G$term.names
+  names(object$edf1) <- G$term.names
+  names(object$edf.nu) <- G1$term.names
+  names(object$edf1.nu) <- G1$term.names
+
+  if (!is.null(G$P)) { ## matrix transforming from fit to prediction parameterization
+    object$coefficients <- as.numeric(G$P %*% object$coefficients)
+    object$Vp <- G$P %*% object$Vp %*% t(G$P)
+    object$Ve <- G$P %*% object$Ve %*% t(G$P)
+    rownames(object$Vp) <- colnames(object$Vp) <- G$term.names
+    rownames(object$Ve) <- colnames(object$Ve) <- G$term.names
+  }
+  #
+  if (!is.null(G1$P)) { ## matrix transforming from fit to prediction parameterization
+    object$coefficients.nu <- as.numeric(G1$P %*% object$coefficients.nu)
+    object$Vp.nu <- G1$P %*% object$Vp.nu %*% t(G1$P)
+    object$Ve.nu <- G1$P %*% object$Ve.nu %*% t(G1$P)
+    rownames(object$Vp.nu) <- colnames(object$Vp.nu) <- G1$term.names
+    rownames(object$Ve.nu) <- colnames(object$Ve.nu) <- G1$term.names
+  }
+  #
+  names(object$coefficients) <- G$term.names
+  names(object$coefficients.nu) <- G1$term.names
+
+  ##
+  if (!is.null(G$L)) {
+    object$full.sp <- as.numeric(exp(G$L%*%log(object$sp)+G$lsp0))
+    names(object$full.sp) <- names(G$lsp0)
+  }
+  if (!is.null(G1$L)) {
+    object$full.sp.nu <- as.numeric(exp(G1$L%*%log(object$sp.nu)+G1$lsp0))
+    names(object$full.sp.nu) <- names(G1$lsp0)
+  }
+  #
+  names(object$sp) <- names(G$sp)
+  names(object$sp.nu) <- names(G1$sp)
+
+  object$paraPen <- G$pP
+  object$formula <- G$formula
+
+  object$paraPen.nu <- G1$pP
+  object$formula.nu <- G1$formula
+  ## store any lpi attribute of G$X for use in predict.gam...
+
+  object$var.summary <- G$var.summary
+  object$var.summary.nu <- G1$var.summary
+
+  object$cmX <- G$cmX ## column means of model matrix --- useful for CIs
+  object$cmX.nu <- G1$cmX
+
+  object$model<-G$mf # store the model frame
+  object$model.nu<-G1$mf
+
+  object$na.action <- attr(G$mf,"na.action") # how to deal with NA's
+  object$control <- control
+  object$terms <- G$terms
+  object$terms.nu <- G1$terms
+  #
+  object$pred.formula <- G$pred.formula
+  object$pred.formula.nu <- G1$pred.formula
+
+  #
+  attr(object$pred.formula,"full") <- reformulate(all.vars(object$terms))
+  attr(object$pred.formula.nu,"full") <- reformulate(all.vars(object$terms))
+
+  object$pterms <- G$pterms
+  object$pterms.nu <- G1$pterms
+
+  object$assign <- G$assign # applies only to pterms
+  object$assign.nu <- G1$assign
+
+  object$contrasts <- G$contrasts
+  object$contrasts.nu <- G1$contrasts
+
+  object$xlevels <- G$xlevels
+  object$xlevels.nu <- G1$xlevels
+
+  object$offset <- G$offset
+  object$offset.nu <- G1$offset
+
+  if (!is.null(G$Xcentre)) object$Xcentre <- G$Xcentre
+  if (!is.null(G1$Xcentre)) object$Xcentre.nu <- G1$Xcentre
+
+  if (control$keepData) object$data <- data
+  #
+  object$df.residual <- nrow(G$X) - sum(object$edf)-sum(object$edf.nu)
+  #
+  object$min.edf <- G$min.edf
+  object$min.edf.nu <- G1$min.edf
+  #
+  object$optimizer <- "magic"
+
+  ########
+  ##### Return
+  return(object)
+
 }
 #end of cmpfit ####################################
 
@@ -966,6 +988,385 @@ print.summary.gam.cmp <- function(x, digits = max(3, getOption("digits") - 3),
   invisible(x)
 } ## print.summary.gam
 
+####################################################################################
+################# plotting  for both
+###############################################################################
+
+
+
+plot.gam.cmp <-  function(x, residuals = FALSE, rug = NULL, se = TRUE, pages = 0,
+                          select = NULL, scale = -1, n = 100, n2 = 40, n3 = 3, pers = FALSE,
+                          theta = 30, phi = 30, jit = FALSE, xlab = NULL, ylab = NULL,
+                          main = NULL, ylim = NULL, xlim = NULL, too.far = 0.1, all.terms = FALSE,
+                          shade = FALSE, shade.col = "gray80", shift = 0, trans = I,
+                          seWithMean = FALSE, unconditional = FALSE, by.resids = FALSE,
+                          scheme = 0, ...)
+{
+  sub.edf <- function(lab, edf) {
+    pos <- regexpr(":", lab)[1]
+    if (pos < 0) {
+      pos <- nchar(lab) - 1
+      lab <- paste(substr(lab, start = 1, stop = pos),
+                   ",", round(edf, digits = 2), ")", sep = "")
+    }
+    else {
+      lab1 <- substr(lab, start = 1, stop = pos - 2)
+      lab2 <- substr(lab, start = pos - 1, stop = nchar(lab))
+      lab <- paste(lab1, ",", round(edf, digits = 2), lab2,
+                   sep = "")
+    }
+    lab
+  }
+  if (pers)
+    warning("argument pers is deprecated, please use scheme instead")
+  if (is.null(rug))
+    rug <- if (nrow(x$model) > 10000)
+      FALSE
+  else TRUE
+  if (unconditional) {
+    if (is.null(x$Vc))
+      warning("Smoothness uncertainty corrected covariance not available")
+    else x$Vp <- x$Vc
+  }
+  w.resid <- NULL
+  if (length(residuals) > 1) {
+    if (length(residuals) == length(x$residuals))
+      w.resid <- residuals
+    else warning("residuals argument to plot.gam is wrong length: ignored")
+    partial.resids <- TRUE
+  }
+  else partial.resids <- residuals
+  m1 <- length(x$smooth)
+  m2 <- length(x$smooth.nu)
+  m <- m1+m2
+  if (length(scheme) == 1)
+    scheme <- rep(scheme, m)
+  if (length(scheme) != m) {
+    warn <- paste("scheme should be a single number, or a vector with",
+                  m, "elements")
+    warning(warn)
+    scheme <- rep(scheme[1], m)
+  }
+  order <- if (is.list(x$pterms))
+    unlist(lapply(x$pterms, attr, "order"))
+  else attr(x$pterms, "order")
+  order1 <- if (is.list(x$pterms.nu))
+    unlist(lapply(x$pterms.nu, attr, "order"))
+  else attr(x$pterms.nu, "order")
+
+  if (all.terms)
+  {n.para <- sum(order == 1)
+  n.para1 <- sum(order1 == 1)
+  }
+  else {
+    n.para <- 0
+    n.para1 <- 0
+  }
+
+  if (se) {
+    if (is.numeric(se))
+      se2.mult <- se1.mult <- se
+    else {
+      se1.mult <- 2
+      se2.mult <- 1
+    }
+    if (se1.mult < 0)
+      se1.mult <- 0
+    if (se2.mult < 0)
+      se2.mult <- 0
+  }
+  else se1.mult <- se2.mult <- 1
+  if (se && x$Vp[1, 1] < 0 && x$Vp.nu[1,1] <0) {
+    se <- FALSE
+    warning("No variance estimates available")
+  }
+  if (partial.resids) {
+    stop("Partial residual plots are not available!")
+  }
+  # if (is.null(w.resid)) {
+  #   if (is.null(x$residuals) || is.null(x$weights))
+  #     partial.resids <- FALSE
+  #   else {
+  #     wr <- sqrt(x$weights)
+  #     w.resid <- x$residuals * wr
+  #   }
+  # }
+  #   if (partial.resids)
+  #     fv.terms <- predict(x, type = "terms")
+  # }
+  pd <- list()
+  i <- 1
+  if (m > 0)
+    if(m1>0)
+      for (i in 1:m1) {
+        first <- x$smooth[[i]]$first.para
+        last <- x$smooth[[i]]$last.para
+        edf <- sum(x$edf[first:last])
+        term.lab <- sub.edf(x$smooth[[i]]$label, edf)
+        attr(x$smooth[[i]], "coefficients") <- x$coefficients[first:last]
+        P <- plot(x$smooth[[i]], P = NULL, data = x$model,
+                              partial.resids = partial.resids, rug = rug, se = se,
+                              scale = scale, n = n, n2 = n2, n3 = n3, pers = pers,
+                              theta = theta, phi = phi, jit = jit, xlab = xlab,
+                              ylab = ylab, main = main, label = term.lab, ylim = ylim,
+                              xlim = xlim, too.far = too.far, shade = shade,
+                              shade.col = shade.col, se1.mult = se1.mult, se2.mult = se2.mult,
+                              shift = shift, trans = trans, by.resids = by.resids,
+                              scheme = scheme[i], ...)
+        if (is.null(P))
+          pd[[i]] <- list(plot.me = FALSE)
+        else if (is.null(P$fit)) {
+          p <- x$coefficients[first:last]
+          offset <- attr(P$X, "offset")
+          if (is.null(offset))
+            P$fit <- P$X %*% p
+          else P$fit <- P$X %*% p + offset
+          if (!is.null(P$exclude))
+            P$fit[P$exclude] <- NA
+          if (se && P$se) {
+            if (seWithMean && attr(x$smooth[[i]], "nCons") >
+                0) {
+              if (length(x$cmX) < ncol(x$Vp))
+                x$cmX <- c(x$cmX, rep(0, ncol(x$Vp) - length(x$cmX)))
+              if (seWithMean == 2)
+                x$cmX[-(1:x$nsdf)] <- 0
+              X1 <- matrix(x$cmX, nrow(P$X), ncol(x$Vp),
+                           byrow = TRUE)
+              meanL1 <- x$smooth[[i]]$meanL1
+              if (!is.null(meanL1))
+                X1 <- X1/meanL1
+              X1[, first:last] <- P$X
+              se.fit <- sqrt(pmax(0, rowSums((X1 %*% x$Vp) *
+                                               X1)))
+            }
+            else se.fit <- sqrt(pmax(0, rowSums((P$X %*%
+                                                   x$Vp[first:last, first:last, drop = FALSE]) *
+                                                  P$X)))
+            if (!is.null(P$exclude))
+              P$se.fit[P$exclude] <- NA
+          }
+          if (partial.resids) {
+            P$p.resid <- fv.terms[, length(order) + i] +
+              w.resid
+          }
+          if (se && P$se)
+            P$se <- se.fit * P$se.mult
+          P$X <- NULL
+          P$plot.me <- TRUE
+          pd[[i]] <- P
+          rm(P)
+        }
+        else {
+          if (partial.resids) {
+            P$p.resid <- fv.terms[, length(order) + i] +
+              w.resid
+          }
+          P$plot.me <- TRUE
+          pd[[i]] <- P
+          rm(P)
+        }
+      }
+  if(m2>0)
+    for (j in 1:m2) {
+      first <- x$smooth.nu[[j]]$first.para
+      last <- x$smooth.nu[[j]]$last.para
+      edf <- sum(x$edf[first:last])
+      term.lab <- sub.edf(x$smooth.nu[[j]]$label, edf)
+      attr(x$smooth.nu[[j]], "coefficients") <- x$coefficients.nu[first:last]
+      P <- plot(x$smooth.nu[[j]], P = NULL, data = x$model.nu,
+                            partial.resids = partial.resids, rug = rug, se = se,
+                            scale = scale, n = n, n2 = n2, n3 = n3, pers = pers,
+                            theta = theta, phi = phi, jit = jit, xlab = xlab,
+                            ylab = ylab, main = main, label = term.lab, ylim = ylim,
+                            xlim = xlim, too.far = too.far, shade = shade,
+                            shade.col = shade.col, se1.mult = se1.mult, se2.mult = se2.mult,
+                            shift = shift, trans = trans, by.resids = by.resids,
+                            scheme = scheme[j+m1], ...)
+      if (is.null(P))
+        pd[[j+m1]] <- list(plot.me = FALSE)
+      else if (is.null(P$fit)) {
+        p <- x$coefficients.nu[first:last]
+        offset <- attr(P$X, "offset")
+        if (is.null(offset))
+          P$fit <- P$X %*% p
+        else P$fit <- P$X %*% p + offset
+        if (!is.null(P$exclude))
+          P$fit[P$exclude] <- NA
+        if (se && P$se) {
+          if (seWithMean && attr(x$smooth.nu[[j]], "nCons") >
+              0) {
+            if (length(x$cmX.nu) < ncol(x$Vp.nu))
+              x$cmX.nu <- c(x$cmX.nu, rep(0, ncol(x$Vp.nu) - length(x$cmX.nu)))
+            if (seWithMean == 2)
+              x$cmX.nu[-(1:x$nsdf.nu)] <- 0
+            X1 <- matrix(x$cmX.nu, nrow(P$X), ncol(x$Vp.nu),
+                         byrow = TRUE)
+            meanL1 <- x$smooth.nu[[j]]$meanL1
+            if (!is.null(meanL1))
+              X1 <- X1/meanL1
+            X1[, first:last] <- P$X
+            se.fit <- sqrt(pmax(0, rowSums((X1 %*% x$Vp.nu) *
+                                             X1)))
+          }
+          else se.fit <- sqrt(pmax(0, rowSums((P$X %*%
+                                                 x$Vp.nu[first:last, first:last, drop = FALSE]) *
+                                                P$X)))
+          if (!is.null(P$exclude))
+            P$se.fit[P$exclude] <- NA
+        }
+        if (partial.resids) {
+          P$p.resid <- fv.terms[, length(order) + i] +
+            w.resid
+        }
+        if (se && P$se)
+          P$se <- se.fit * P$se.mult
+        P$X <- NULL
+        P$plot.me <- TRUE
+        pd[[j+m1]] <- P
+        rm(P)
+      }
+      else {
+        if (partial.resids) {
+          P$p.resid <- fv.terms[, length(order) + i] +
+            w.resid
+        }
+        P$plot.me <- TRUE
+        pd[[j+m1]] <- P
+        rm(P)
+      }
+    }
+
+  n.plots <- n.para+n.para1
+  if (m > 0)
+    for (i in 1:m) n.plots <- n.plots + as.numeric(pd[[i]]$plot.me)
+  if (n.plots == 0)
+    stop("No terms to plot - nothing for plot.gam() to do.")
+  if (pages > n.plots)
+    pages <- n.plots
+  if (pages < 0)
+    pages <- 0
+  if (pages != 0) {
+    ppp <- n.plots%/%pages
+    if (n.plots%%pages != 0) {
+      ppp <- ppp + 1
+      while (ppp * (pages - 1) >= n.plots) pages <- pages -
+          1
+    }
+    c <- r <- trunc(sqrt(ppp))
+    if (c < 1)
+      r <- c <- 1
+    if (c * r < ppp)
+      c <- c + 1
+    if (c * r < ppp)
+      r <- r + 1
+    oldpar <- par(mfrow = c(r, c))
+  }
+  else {
+    ppp <- 1
+    oldpar <- par()
+  }
+  if (scale == -1 && is.null(ylim)) {
+    k <- 0
+    if (m > 0)
+      for (i in 1:m) if (pd[[i]]$plot.me && pd[[i]]$scale) {
+        if (se && length(pd[[i]]$se) > 1) {
+          ul <- pd[[i]]$fit + pd[[i]]$se
+          ll <- pd[[i]]$fit - pd[[i]]$se
+          if (k == 0) {
+            ylim <- c(min(ll, na.rm = TRUE), max(ul,
+                                                 na.rm = TRUE))
+            k <- 1
+          }
+          else {
+            if (min(ll, na.rm = TRUE) < ylim[1])
+              ylim[1] <- min(ll, na.rm = TRUE)
+            if (max(ul, na.rm = TRUE) > ylim[2])
+              ylim[2] <- max(ul, na.rm = TRUE)
+          }
+        }
+        else {
+          if (k == 0) {
+            ylim <- range(pd[[i]]$fit, na.rm = TRUE)
+            k <- 1
+          }
+          else {
+            if (min(pd[[i]]$fit, na.rm = TRUE) < ylim[1])
+              ylim[1] <- min(pd[[i]]$fit, na.rm = TRUE)
+            if (max(pd[[i]]$fit, na.rm = TRUE) > ylim[2])
+              ylim[2] <- max(pd[[i]]$fit, na.rm = TRUE)
+          }
+        }
+        if (partial.resids) {
+          ul <- max(pd[[i]]$p.resid, na.rm = TRUE)
+          if (ul > ylim[2])
+            ylim[2] <- ul
+          ll <- min(pd[[i]]$p.resid, na.rm = TRUE)
+          if (ll < ylim[1])
+            ylim[1] <- ll
+        }
+      }
+    ylim <- trans(ylim + shift)
+  }
+  if ((pages == 0 && prod(par("mfcol")) < n.plots && dev.interactive()) ||
+      pages > 1 && dev.interactive())
+    ask <- TRUE
+  else ask <- FALSE
+  if (!is.null(select)) {
+    ask <- FALSE
+  }
+  if (m > 0)
+    for (i in 1:m) if (pd[[i]]$plot.me && (is.null(select) ||
+                                           i == select)) {
+      if (i<=m1)
+        plot(x$smooth[[i]], P = pd[[i]], partial.resids = partial.resids,
+             rug = rug, se = se, scale = scale, n = n, n2 = n2,
+             n3 = n3, pers = pers, theta = theta, phi = phi,
+             jit = jit, xlab = xlab, ylab = ylab, main = main,
+             ylim = ylim, xlim = xlim, too.far = too.far,
+             shade = shade, shade.col = shade.col, shift = shift,
+             trans = trans, by.resids = by.resids, scheme = scheme[i],
+             ...)
+      else
+        plot(x$smooth.nu[[i-m1]], P = pd[[i]], partial.resids = partial.resids,
+             rug = rug, se = se, scale = scale, n = n, n2 = n2,
+             n3 = n3, pers = pers, theta = theta, phi = phi,
+             jit = jit, xlab = xlab, ylab = ylab, main = main,
+             ylim = ylim, xlim = xlim, too.far = too.far,
+             shade = shade, shade.col = shade.col, shift = shift,
+             trans = trans, by.resids = by.resids, scheme = scheme[i],
+             ...)
+      if (ask) {
+        oask <- devAskNewPage(TRUE)
+        on.exit(devAskNewPage(oask))
+        ask <- FALSE
+      }
+    }
+  if (n.para+n.para1 > 0) {
+    class(x) <- c("gam", "glm", "lm")
+    if (is.null(select)) {
+      attr(x, "para.only") <- TRUE
+      termplot(x, se = se, rug = rug, col.se = 1, col.term = 1,
+               main = attr(x$pterms, "term.labels"), ...)
+    }
+    else {
+      if (select > m) {
+        select <- select - m
+        term.labels <- attr(x$pterms, "term.labels")
+        term.labels <- term.labels[order == 1]
+        if (select <= length(term.labels)) {
+          termplot(x, terms = term.labels[select], se = se,
+                   rug = rug, col.se = 1, col.term = 1, ...)
+        }
+      }
+    }
+  }
+  if (pages > 0)
+    par(oldpar)
+  invisible(pd)
+}
+
+
+
 
 
 ######
@@ -973,3 +1374,5 @@ print.summary.gam.cmp <- function(x, digits = max(3, getOption("digits") - 3),
 environment(gam.cmp) <- asNamespace("mgcv")
 environment(summary.gam.cmp) <- asNamespace("mgcv")
 environment(print.summary.gam.cmp) <- asNamespace("mgcv")
+environment(plot.gam.cmp) <- asNamespace("mgcv")
+
