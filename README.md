@@ -52,17 +52,17 @@ For more details about the model formulations and estimation procedures, please 
 `m21 <- as.formula(y~s(x0))`\
 `m22 <- as.formula(y~x0)`
 
-  ### CMP GAM with smooth functions for both lambda and nu
+  ### CMP GAM with additive models for both lambda and nu
   `cmpgam <- gam.cmp(list(m1,m21),data = sdata,family = cmp)`\
   `summary.gam.cmp(cmpgam)`
   
   
-  ### CMP GAM with smooth model for lambda and linear model for nu
+  ### CMP GAM with additive model for lambda and linear model for nu
   `cmpglm <- gam.cmp(list(m1,m22),data = sdata,family = cmp)`\
   `summary.gam.cmp(cmpglm)`
   
   
-  ### CMP GAM with smooth model for lambda and constant model for nu
+  ### CMP GAM with additive model for lambda and constant model for nu
   `cmpglm1 <- gam.perf1(m1,data = sdata,family = cmp)`\
   `summary.gam1(cmpglm1)`
   
