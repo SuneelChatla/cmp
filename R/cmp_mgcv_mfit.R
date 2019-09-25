@@ -18,8 +18,8 @@ if(is.list(formula.list))
   if (is.character(family)) family <- eval(parse(text=family))
   if (is.function(family)) family <- family()
   if (is.null(family$family)) stop("family not recognized")
-  if(!is.null(offset.lam))  data$offset.lam <-offset.lam
-  if(!is.null(offset.nu))  data$offset.nu <- offset.nu
+  if(!is.null(offset.lam))  data$offset.lam <-offset.lam else data$offset.lam=0
+  if(!is.null(offset.nu))  data$offset.nu <- offset.nu else data$offset.nu=0
   #
 # preparing bases gam set-up
 G <- gam.perf1(t1,data = data,family = cmp(),weights=NULL,subset=NULL,na.action,offset=offset.lam, method="GCV.Cp",optimizer=c("perf","magic"),control=gam.control(), scale=0,select=FALSE,knots=NULL,sp=NULL,min.sp=NULL,H=NULL,gamma=1,fit=FALSE, paraPen=NULL,G=NULL,in.out=NULL,drop.unused.levels=TRUE,drop.intercept=NULL,...)
@@ -426,7 +426,7 @@ gam.fit.cmp <- function (G, G1, mucoef = NULL,nucoef=NULL, family = cmp(),
 
   #####################################
   #### post processing for nu
-  mv1<-magic.post.proc(G1$X,mr1,w=G1$w^2)
+  mv1<-magic.post.proc(G1$X.up,mr1,w=G1$w^2)
   G1$Vp<-mv1$Vb;
   G1$hat<-mv1$hat;
   G1$Ve <- mv1$Ve # frequentist cov. matrix
