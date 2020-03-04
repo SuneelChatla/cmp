@@ -18,5 +18,6 @@ export(gam.cmp,
        com.log.z,
        CMPCumulants,
        CMP.dev,
-       rcmp
+       rcmp,
+       plot.gam.cmp
        )
