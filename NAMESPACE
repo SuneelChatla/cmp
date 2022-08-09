@@ -11,4 +11,6 @@ export(gam.cmp,
        cmp,
        gam.fit.cmp1,
        print.summary.gam1,
-       print.summary.gam.cmp)
+       print.summary.gam.cmp,
+	predict.gam.cmp,
+	plot.gam.cmp)
