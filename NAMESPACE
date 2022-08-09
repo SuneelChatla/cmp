@@ -11,13 +11,4 @@ export(gam.cmp,
        cmp,
        gam.fit.cmp1,
        print.summary.gam1,
-       print.summary.gam.cmp,
-       LogFactorial,
-       asym.cumulants,
-       asym.com.log.z,
-       com.log.z,
-       CMPCumulants,
-       CMP.dev,
-       rcmp,
-       plot.gam.cmp
-       )
+       print.summary.gam.cmp)
